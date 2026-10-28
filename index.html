@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>УНО онлайн</title>
+<style>
+  :root {
+    --felt: #17382f; --felt-dark: #0f261f; --ink: #f3efe4; --muted: #9db8ac;
+    --red: #d6382f; --yellow: #f2b705; --green: #2e9b52; --blue: #2a66c9; --wild: #26262b;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: radial-gradient(ellipse at 50% 30%, var(--felt) 0%, var(--felt-dark) 100%) fixed;
+    color: var(--ink); font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; padding: 16px;
+  }
+  h1 { font-size: 2.4rem; margin: 8px 0 4px; letter-spacing: .02em; }
+  .panel { background: rgba(0,0,0,.28); border-radius: 14px; padding: 20px; width: min(420px, 100%); margin-top: 12px; }
+  input, button { font: inherit; border-radius: 10px; border: 0; padding: 12px 14px; width: 100%; margin-top: 10px; }
+  input { background: #f3efe4; color: #111; text-transform: none; }
+  button { background: var(--yellow); color: #1b1b1b; font-weight: 700; cursor: pointer; }
+  button.alt { background: transparent; color: var(--ink); outline: 2px solid var(--muted); }
+  button:disabled { opacity: .45; cursor: default; }
+  button:focus-visible, input:focus-visible, .card:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+  .hidden { display: none !important; }
+  .err { color: #ffb4a8; min-height: 1.3em; margin-top: 8px; }
+  .code { font-size: 2.6rem; font-weight: 800; letter-spacing: .25em; text-align: center; }
+  ul { list-style: none; padding: 0; margin: 12px 0 0; }
+  li { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.1); }
+
+  #game { width: min(980px, 100%); }
+  .opps { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 8px 0 18px; }
+  .opp { padding: 8px 14px; border-radius: 12px; background: rgba(0,0,0,.28); text-align: center; min-width: 110px; }
+  .opp.turn { outline: 3px solid var(--yellow); }
+  .opp b { font-size: 1.4rem; display: block; }
+  .table { display: flex; gap: 28px; justify-content: center; align-items: center; margin: 10px 0; }
+  .log { text-align: center; min-height: 1.5em; color: var(--muted); }
+  .status { text-align: center; font-size: 1.2rem; font-weight: 700; margin: 8px 0; }
+  .swatch { display: inline-block; width: 16px; height: 16px; border-radius: 50%; vertical-align: -2px; margin-left: 6px; border: 2px solid #fff; }
+  .hand { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 18px; }
+
+  .card {
+    width: 74px; height: 108px; border-radius: 10px; border: 4px solid #fff; color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 1.9rem; font-weight: 800;
+    user-select: none; position: relative; flex: none; padding: 0; margin: 0;
+    text-shadow: 0 2px 0 rgba(0,0,0,.3);
+  }
+  .card.red { background: var(--red); } .card.yellow { background: var(--yellow); }
+  .card.green { background: var(--green); } .card.blue { background: var(--blue); }
+  .card.wild { background: conic-gradient(var(--red) 0 25%, var(--blue) 0 50%, var(--green) 0 75%, var(--yellow) 0); }
+  .card.back { background: #1a1a1a; border-color: #fff; font-size: 1.3rem; }
+  .hand .card { cursor: pointer; transition: transform .12s; }
+  .hand .card.ok:hover { transform: translateY(-10px); }
+  .hand .card.no { opacity: .45; cursor: not-allowed; }
+  .hand .card.ok { box-shadow: 0 0 0 3px var(--yellow); }
+
+  #picker { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; }
+  #picker div { background: var(--felt-dark); padding: 22px; border-radius: 14px; text-align: center; }
+  #picker .row { display: flex; gap: 10px; margin-top: 12px; }
+  #picker button { width: 64px; height: 64px; border-radius: 50%; border: 4px solid #fff; padding: 0; }
+</style>
+</head>
+<body>
+<h1>УНО онлайн</h1>
+
+<div id="login" class="panel">
+  <input id="name" maxlength="16" placeholder="Ваше имя" autocomplete="nickname">
+  <button id="create">Создать комнату</button>
+  <input id="codeIn" maxlength="4" placeholder="Код комнаты">
+  <button id="join" class="alt">Войти по коду</button>
+  <div id="err" class="err" role="alert"></div>
+</div>
+
+<div id="lobby" class="panel hidden">
+  <div>Код комнаты — отправьте его друзьям:</div>
+  <div class="code" id="roomCode"></div>
+  <ul id="lobbyPlayers"></ul>
+  <button id="start">Начать игру</button>
+  <div id="lobbyLog" class="log"></div>
+</div>
+
+<div id="game" class="hidden">
+  <div class="opps" id="opps"></div>
+  <div class="table">
+    <button class="card back" id="deck" style="cursor:pointer" title="Взять карту и пропустить ход">УНО</button>
+    <div id="top"></div>
+  </div>
+  <div class="status" id="status"></div>
+  <div class="log" id="log"></div>
+  <div class="hand" id="hand"></div>
+  <div style="text-align:center"><button id="again" class="hidden" style="width:auto;padding:12px 28px">Сыграть ещё раз</button></div>
+</div>
+
+<div id="picker" class="hidden">
+  <div>Выберите цвет
+    <div class="row">
+      <button style="background:var(--red)" data-c="red" aria-label="Красный"></button>
+      <button style="background:var(--yellow)" data-c="yellow" aria-label="Жёлтый"></button>
+      <button style="background:var(--green)" data-c="green" aria-label="Зелёный"></button>
+      <button style="background:var(--blue)" data-c="blue" aria-label="Синий"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const COLOR_RU = { red: 'красный', yellow: 'жёлтый', green: 'зелёный', blue: 'синий' };
+const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+let S = null, pendingWild = null;
+
+const send = (o) => ws.readyState === 1 && ws.send(JSON.stringify(o));
+ws.onclose = () => { $('err').textContent = 'Соединение потеряно. Обновите страницу.'; };
+
+$('create').onclick = () => send({ type: 'create', name: $('name').value });
+$('join').onclick = () => send({ type: 'join', name: $('name').value, code: $('codeIn').value });
+$('start').onclick = () => send({ type: 'start' });
+$('deck').onclick = () => send({ type: 'draw' });
+$('again').onclick = () => send({ type: 'again' });
+document.querySelectorAll('#picker button').forEach((b) => {
+  b.onclick = () => {
+    send({ type: 'play', cardId: pendingWild, color: b.dataset.c });
+    pendingWild = null; $('picker').classList.add('hidden');
+  };
+});
+
+ws.onmessage = (e) => {
+  const m = JSON.parse(e.data);
+  if (m.type === 'error') { $('err').textContent = m.text; alert(m.text); return; }
+  if (m.type === 'state') { S = m; render(); }
+};
+
+function label(v) { return v === 'skip' ? '⊘' : v === 'reverse' ? '⇄' : v === 'wild' ? '★' : v; }
+
+function cardEl(c, tag = 'div') {
+  const el = document.createElement(tag);
+  el.className = 'card ' + c.color;
+  el.textContent = label(c.value);
+  return el;
+}
+
+function playable(c) {
+  const top = S.top;
+  return c.color === 'wild' || c.color === S.color || c.value === top.value;
+}
+
+function render() {
+  $('login').classList.add('hidden');
+  $('lobby').classList.toggle('hidden', S.started);
+  $('game').classList.toggle('hidden', !S.started);
+
+  if (!S.started) {
+    $('roomCode').textContent = S.code;
+    $('lobbyPlayers').innerHTML = '';
+    S.players.forEach((p) => {
+      const li = document.createElement('li');
+      li.textContent = p.name + (p.id === S.you ? ' (вы)' : '');
+      $('lobbyPlayers').appendChild(li);
+    });
+    $('start').classList.toggle('hidden', !S.isHost);
+    $('start').disabled = S.players.length < 2;
+    $('lobbyLog').textContent = S.isHost ? (S.players.length < 2 ? 'Ждём ещё игроков…' : '') : 'Ждём, пока хозяин начнёт игру…';
+    return;
+  }
+
+  const myTurn = S.turn === S.you && !S.winner;
+  $('opps').innerHTML = '';
+  S.players.filter((p) => p.id !== S.you).forEach((p) => {
+    const d = document.createElement('div');
+    d.className = 'opp' + (p.id === S.turn ? ' turn' : '');
+    d.innerHTML = '<b></b><span></span>';
+    d.querySelector('b').textContent = p.count;
+    d.querySelector('span').textContent = p.name;
+    $('opps').appendChild(d);
+  });
+
+  $('top').innerHTML = '';
+  $('top').appendChild(cardEl(S.top));
+  const turnName = (S.players.find((p) => p.id === S.turn) || {}).name;
+  $('status').innerHTML = '';
+  $('status').append(S.winner ? `Победил(а): ${S.winner}` : myTurn ? 'Ваш ход' : `Ходит ${turnName}`);
+  if (!S.winner) {
+    const sw = document.createElement('span');
+    sw.className = 'swatch'; sw.style.background = `var(--${S.color})`; sw.title = 'Текущий цвет: ' + COLOR_RU[S.color];
+    $('status').append(' · цвет:', sw);
+  }
+  $('log').textContent = S.log || '';
+  $('deck').disabled = !myTurn;
+  $('again').classList.toggle('hidden', !(S.winner && S.isHost));
+
+  $('hand').innerHTML = '';
+  S.hand.forEach((c) => {
+    const el = cardEl(c, 'button');
+    const ok = myTurn && playable(c);
+    el.classList.add(ok ? 'ok' : 'no');
+    el.disabled = !ok;
+    el.onclick = () => {
+      if (c.color === 'wild') { pendingWild = c.id; $('picker').classList.remove('hidden'); }
+      else send({ type: 'play', cardId: c.id });
+    };
+    $('hand').appendChild(el);
+  });
+}
+</script>
+</body>
+</html>
